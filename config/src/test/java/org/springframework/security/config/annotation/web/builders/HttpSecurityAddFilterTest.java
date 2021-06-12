@@ -70,6 +70,22 @@ public class HttpSecurityAddFilterTest {
 				ExceptionTranslationFilter.class);
 	}
 
+	@Test
+	public void addCustomFilterFiltersRelativelyToCustomAfterFilterThenOrderCorrect() {
+		this.spring.register(MyFiltersRelativelyToAfterFilterConfig.class).autowire();
+
+		assertThatFilters().containsSubsequence(WebAsyncManagerIntegrationFilter.class, MyFilterBefore.class,
+				MyFilter.class, MyFilterAfter.class);
+	}
+
+	@Test
+	public void addCustomFilterFiltersRelativelyToCustomBeforeOrderCorrect() {
+		this.spring.register(MyFiltersRelativelyToBeforeFilterConfig.class).autowire();
+
+		assertThatFilters().containsSubsequence(MyFilterBefore.class, MyFilter.class, MyFilterAfter.class,
+				WebAsyncManagerIntegrationFilter.class);
+	}
+
 	private ListAssert<Class<?>> assertThatFilters() {
 		FilterChainProxy filterChain = this.spring.getContext().getBean(FilterChainProxy.class);
 		List<Class<?>> filters = filterChain.getFilters("/").stream().map(Object::getClass)
@@ -78,6 +94,26 @@ public class HttpSecurityAddFilterTest {
 	}
 
 	public static class MyFilter implements Filter {
+
+		@Override
+		public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain)
+				throws IOException, ServletException {
+			filterChain.doFilter(servletRequest, servletResponse);
+		}
+
+	}
+
+	public static class MyFilterBefore implements Filter {
+
+		@Override
+		public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain)
+				throws IOException, ServletException {
+			filterChain.doFilter(servletRequest, servletResponse);
+		}
+
+	}
+
+	public static class MyFilterAfter implements Filter {
 
 		@Override
 		public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain)
@@ -124,6 +160,36 @@ public class HttpSecurityAddFilterTest {
 			http
 					.addFilterAt(new MyFilter(), ChannelProcessingFilter.class)
 					.addFilterAt(new MyFilter(), UsernamePasswordAuthenticationFilter.class);
+			// @formatter:on
+		}
+
+	}
+
+	@EnableWebSecurity
+	static class MyFiltersRelativelyToAfterFilterConfig extends WebSecurityConfigurerAdapter {
+
+		@Override
+		protected void configure(HttpSecurity http) throws Exception {
+			// @formatter:off
+			http
+					.addFilterAfter(new MyFilter(), WebAsyncManagerIntegrationFilter.class)
+					.addFilterBefore(new MyFilterBefore(), MyFilter.class)
+					.addFilterAfter(new MyFilterAfter(), MyFilter.class);
+			// @formatter:on
+		}
+
+	}
+
+	@EnableWebSecurity
+	static class MyFiltersRelativelyToBeforeFilterConfig extends WebSecurityConfigurerAdapter {
+
+		@Override
+		protected void configure(HttpSecurity http) throws Exception {
+			// @formatter:off
+			http
+					.addFilterBefore(new MyFilter(), WebAsyncManagerIntegrationFilter.class)
+					.addFilterBefore(new MyFilterBefore(), MyFilter.class)
+					.addFilterAfter(new MyFilterAfter(), MyFilter.class);
 			// @formatter:on
 		}
 
