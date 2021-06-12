@@ -18,6 +18,7 @@ package org.springframework.security.config.annotation.web.builders;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -128,6 +129,7 @@ import org.springframework.web.servlet.handler.HandlerMappingIntrospector;
  *
  * @author Rob Winch
  * @author Joe Grandja
+ * @author ch4mpy ch4mp@c4-soft.com
  * @since 3.2
  * @see EnableWebSecurity
  */
@@ -141,6 +143,8 @@ public final class HttpSecurity extends AbstractConfiguredSecurityBuilder<Defaul
 	private RequestMatcher requestMatcher = AnyRequestMatcher.INSTANCE;
 
 	private FilterOrderRegistration filterOrders = new FilterOrderRegistration();
+
+	private Map<Class<? extends Filter>, Integer> customFiltersOrder = new HashMap<>();
 
 	/**
 	 * Creates a new instance
@@ -2651,8 +2655,21 @@ public final class HttpSecurity extends AbstractConfiguredSecurityBuilder<Defaul
 	}
 
 	private HttpSecurity addFilterAtOffsetOf(Filter filter, int offset, Class<? extends Filter> registeredFilter) {
-		int order = this.filterOrders.getOrder(registeredFilter) + offset;
+		int order;
+		Integer stdFilterOrder = this.filterOrders.getOrder(registeredFilter);
+
+		if (stdFilterOrder != null) {
+			order = stdFilterOrder + offset;
+		}
+		else if (this.customFiltersOrder.containsKey(registeredFilter)) {
+			order = this.customFiltersOrder.get(registeredFilter) + ((offset > 0) ? offset - 1 : offset);
+		}
+		else {
+			throw new IllegalArgumentException(registeredFilter.getName() + " is not registered in filter chain yet.");
+		}
+
 		this.filters.add(new OrderedFilter(filter, order));
+		this.customFiltersOrder.put(filter.getClass(), order);
 		return this;
 	}
 
